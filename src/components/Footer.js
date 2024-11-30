@@ -6,7 +6,7 @@ import { CiYoutube } from "react-icons/ci";
 const Footer = () => {
 
     return (
-        <div className="flex border-black border-4 h-40 justify">
+        <div className="flex border-black border-t-2 h-40 justify">
              <img src="./AaveLogo.png" alt="Descriptive alt text" width="150" height="10" sizes='' />
              <div className='flex w-1/2 my-auto'>
          

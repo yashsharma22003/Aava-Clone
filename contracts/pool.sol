@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "./InterestToken.sol";
 
-contract Pool {
+contract pool {
 
     address contractOwner;
     InterestToken public Token;
@@ -23,6 +23,8 @@ contract Pool {
     error RedeemValueOvershotBalance();
     error NotEnoughLiquidFundsAvailable();
     error InsufficientEtherInContract();
+    error AmountOvershotDebt();
+
 
     modifier onlyOwner() {
         if (msg.sender != contractOwner) {
@@ -41,6 +43,7 @@ contract Pool {
     event DebtAdded(bytes32 indexed market, address indexed borrower, uint256 interestAdded, uint256 totalDebt);
     event SupplyWithdrawn(bytes32 indexed market, address indexed member, uint256 amount);
     event EtherRedeemed(address indexed user, uint256 amountRedeemed);
+event PoolRepaymentMade(bytes32 indexed market, address indexed borrower, uint256 amount);
 
     struct PoolData {
         address owner;
@@ -95,7 +98,7 @@ contract Pool {
         emit PoolSupplied(_poolName, msg.sender, msg.value);
     }
 
-    function poolBorrow(bytes32 _market, uint32 _amount) public {
+    function poolBorrow(bytes32 _market, uint256 _amount) public {
         if ((_amount + pools[_market].borrowedFunds[msg.sender]) > (pools[_market].depositedFunds[msg.sender] * 80 / 100)) {
             revert BorrowingLimitReached();
         }
@@ -112,6 +115,35 @@ contract Pool {
         pools[_market].interest = updatedInterest(pools[_market].borrowed, pools[_market].liquid);
         emit PoolBorrowed(_market, msg.sender, _amount);
     }
+
+   function poolRepay(bytes32 _market) public payable {
+    PoolData storage poolInstance = pools[_market];
+
+  
+    if (!poolInstance.isActive) {
+        revert PoolNotActive();
+    }
+
+
+    uint256 borrowerDebt = poolInstance.borrowedFunds[msg.sender];
+    if (borrowerDebt == 0) {
+        revert NoFundsBorrowed();
+    }
+
+    if (msg.value == 0 || msg.value > borrowerDebt) {
+        revert AmountOvershotDebt();
+    }
+
+    poolInstance.borrowedFunds[msg.sender] -= msg.value;
+    poolInstance.borrowed -= msg.value;
+    poolInstance.liquid += msg.value;
+
+    poolInstance.interest = updatedInterest(poolInstance.borrowed, poolInstance.liquid);
+
+
+    emit PoolRepaymentMade(_market, msg.sender, msg.value);
+}
+
 
     function updatedInterest(uint256 _borrowed, uint256 _liquid) internal pure returns (uint256) {
         if (_liquid == 0) {
